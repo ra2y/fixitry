@@ -1,12 +1,52 @@
 body {
-  font-family: system-ui, sans-serif;
+  font-family: Inter, ui-sans-serif, system-ui, sans-serif;
   margin: 0;
-  background: #0f172a;
-  color: #e2e8f0;
+  background: #0b1020;
+  color: #e7edf8;
 }
 
-main {
-  max-width: 960px;
+.shell {
+  max-width: 980px;
   margin: 0 auto;
-  padding: 2rem;
+  padding: 3.5rem 1.5rem;
+}
+
+.hero, .section-heading, .form-row, .job-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.hero { margin-bottom: 2rem; align-items: flex-start; }
+h1, h2, p { margin-top: 0; }
+h1 { margin-bottom: .5rem; font-size: clamp(2.5rem, 7vw, 4.5rem); letter-spacing: -.06em; }
+h2 { margin-bottom: 1.25rem; font-size: 1.15rem; }
+.lede { color: #a7b4cc; font-size: 1.1rem; }
+.eyebrow { color: #7dd3fc; font-size: .72rem; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; }
+.card { margin-top: 1.25rem; padding: 1.5rem; border: 1px solid #273451; border-radius: 18px; background: #121a2c; box-shadow: 0 18px 50px #05081155; }
+label { display: block; margin-bottom: .6rem; color: #a7b4cc; font-size: .9rem; }
+input { min-width: 0; flex: 1; padding: .85rem 1rem; border: 1px solid #344463; border-radius: 10px; background: #0b1020; color: #e7edf8; font: inherit; }
+button { padding: .85rem 1.1rem; border: 0; border-radius: 10px; background: #38bdf8; color: #082032; cursor: pointer; font: inherit; font-weight: 800; }
+button:disabled { cursor: wait; opacity: .6; }
+.connection-pill, .status, .job-count { border-radius: 999px; padding: .4rem .7rem; font-size: .75rem; font-weight: 700; }
+.connection-pill { background: #123c39; color: #6ee7b7; }
+.job-count { background: #24314c; color: #b9c8e3; }
+.notice, .muted { color: #a7b4cc; }
+.notice { padding: 1rem; border: 1px solid #344463; border-radius: 10px; background: #121a2c; }
+code { color: #bae6fd; }
+.error { margin: .75rem 0 0; color: #fca5a5; }
+.job-list { display: grid; gap: .75rem; margin: 0; padding: 0; list-style: none; }
+.job-row { padding: 1rem; border: 1px solid #273451; border-radius: 12px; }
+.job-row div { min-width: 0; }
+.job-row strong { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.job-row small { display: block; margin-top: .35rem; color: #7f8eaa; }
+.status-queued { background: #423518; color: #fcd34d; }
+.status-running { background: #163c57; color: #7dd3fc; }
+.status-completed { background: #123c39; color: #6ee7b7; }
+.status-failed { background: #4a2028; color: #fda4af; }
+
+@media (max-width: 680px) {
+  .hero, .form-row, .job-row { align-items: stretch; flex-direction: column; }
+  .connection-pill, button, .status { align-self: flex-start; }
 }
