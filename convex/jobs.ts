@@ -13,8 +13,8 @@ const NEXT: Partial<Record<Status, Status[]>> = {
   scanning: ["awaiting_approval", "completed"],
   awaiting_approval: ["approved"],
   approved: ["repairing"],
-  repairing: ["testing"],
-  testing: ["verifying"],
+  repairing: ["testing", "completed"],
+  testing: ["verifying", "completed"],
   verifying: ["completed"],
 };
 

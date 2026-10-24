@@ -26,3 +26,12 @@ export const listByJob = query({
       .take(1000);
   },
 });
+
+export const listForWorker = query({
+  args: { secret: v.string(), jobId: v.id("jobs"), scanRound: v.union(v.literal("initial"), v.literal("verification")) },
+  handler: async (ctx, { secret, jobId, scanRound }) => {
+    assertWorker(secret);
+    return await ctx.db.query("findings")
+      .withIndex("by_job_round", (q) => q.eq("jobId", jobId).eq("scanRound", scanRound)).take(1000);
+  },
+});

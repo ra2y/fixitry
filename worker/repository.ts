@@ -3,6 +3,9 @@ import path from "node:path";
 import { isAllowed, parseGithubRepoUrl } from "../convex/lib/repoUrl";
 import { config } from "./config";
 import { childEnv, run } from "./exec";
+import { assertInsideWorkRoot } from "./cleanup";
+
+const norm = (p: string) => p.replace(/\\/g, "/").replace(/^"|"$/g, "");
 
 export async function createJobDir(): Promise<string> {
   await mkdir(config.workRoot, { recursive: true });
@@ -31,4 +34,23 @@ export async function headSha(repoDir: string): Promise<string> {
   const res = await run("git", ["rev-parse", "HEAD"], { cwd: repoDir, timeoutMs: 10_000 });
   if (res.exitCode !== 0) throw new Error("git rev-parse failed");
   return res.stdout.trim();
+}
+
+export async function changedFiles(repoDir: string): Promise<string[]> {
+  const res = await run("git", ["status", "--porcelain=v1", "-uall"], { cwd: repoDir, timeoutMs: 15_000 });
+  return res.stdout.split(/\r?\n/).filter(Boolean)
+    .flatMap((line) => line.slice(3).split(" -> ")).map(norm);
+}
+
+export async function revertAll(repoDir: string): Promise<void> {
+  assertInsideWorkRoot(repoDir); // never run reset/clean outside our temp area
+  await run("git", ["reset", "--hard"], { cwd: repoDir, timeoutMs: 30_000 });
+  await run("git", ["clean", "-fd"], { cwd: repoDir, timeoutMs: 30_000 });
+}
+
+export async function stagedPatch(repoDir: string): Promise<{ patch: string; truncated: boolean }> {
+  await run("git", ["add", "-A"], { cwd: repoDir, timeoutMs: 30_000 });
+  const res = await run("git", ["diff", "--cached", "--binary"], { cwd: repoDir, timeoutMs: 30_000, maxBytes: 5_000_000 });
+  const CAP = 200_000;
+  return { patch: res.stdout.slice(0, CAP), truncated: res.stdout.length > CAP };
 }
