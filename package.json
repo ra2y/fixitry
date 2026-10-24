@@ -6,12 +6,15 @@
   "scripts": {
     "dev": "vite",
     "convex:dev": "convex dev",
+    "worker": "tsx worker/index.ts",
     "build": "tsc -b && vite build",
     "lint": "oxlint",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "typecheck:worker": "tsc -p worker/tsconfig.json"
   },
   "dependencies": {
     "convex": "^1.48.0",
+    "dotenv": "^18.0.9",
     "react": "^19.3.1",
     "react-dom": "^19.3.1"
   },
@@ -21,6 +24,7 @@
     "@types/react-dom": "^19.3.0",
     "@vitejs/plugin-react": "^6.1.2",
     "oxlint": "^1.88.0",
+    "tsx": "^4.23.15",
     "typescript": "~6.0.3",
     "vite": "^8.3.4"
   }
