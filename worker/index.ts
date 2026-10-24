@@ -4,6 +4,10 @@ import { api } from "../convex/_generated/api";
 import { config } from "./config";
 import { convex } from "./convexClient";
 
+import { createJobDir, cloneRepo, headSha } from "./repository";
+import { removeJobDir } from "./cleanup";
+import { logEvent } from "./convexClient";
+
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 let stopping = false;
 process.on("SIGINT", () => {
@@ -26,14 +30,23 @@ async function setStatus(
   });
 }
 
-async function processJob({ kind, job }: Claimed) {
-  if (!isAllowed(job.repoUrl, config.allowedRepositories)) {
-    throw new Error("Repository is not on the worker allowlist");
+async function processScan(job: Doc<"jobs">) {
+  const jobDir = await createJobDir();
+  try {
+    await logEvent(job._id, "worker", `Cloning ${job.repoUrl}`);
+    const repoDir = await cloneRepo(job.repoUrl, jobDir);
+    await logEvent(job._id, "worker", `Cloned at commit ${(await headSha(repoDir)).slice(0, 8)}`);
+    await setStatus(job._id, "scanning");
+    throw new Error("Scan not implemented yet (clone succeeded)");
+  } finally {
+    await removeJobDir(jobDir);
+    await logEvent(job._id, "worker", "Temporary directory removed");
   }
-  console.log(`Claimed ${kind} job ${job._id} (${job.repoUrl})`);
-  // Placeholder until Phase 7
-  await setStatus(job._id, kind === "scan" ? "scanning" : "testing");
-  throw new Error("Not implemented yet");
+}
+
+async function processJob({ kind, job }: Claimed) {
+  if (kind === "scan") return processScan(job);
+  throw new Error("Repair not implemented yet");
 }
 
 async function main() {

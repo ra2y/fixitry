@@ -21,4 +21,10 @@ export default defineSchema({
     error: v.optional(v.string()),
     claimedBy: v.optional(v.string()),
   }).index("by_status", ["status"]),
+  events: defineTable({
+  jobId: v.id("jobs"),
+    level: v.union(v.literal("info"), v.literal("warn"), v.literal("error")),
+    source: v.union(v.literal("worker"), v.literal("trivy"), v.literal("droid"), v.literal("tests")),
+    message: v.string(),
+  }).index("by_job", ["jobId"]),
 });
