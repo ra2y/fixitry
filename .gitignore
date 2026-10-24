@@ -39,6 +39,7 @@ scan-output/
 
 AGENTS.md 
 CLAUDE.md 
-convex/_generated/ai/
+convex/_generated/
 
 docs
+BUILD_GUIDE.md
