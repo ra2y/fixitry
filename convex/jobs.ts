@@ -4,21 +4,14 @@ import { v } from "convex/values";
 export const list = query({
   args: {},
   handler: async (ctx) => {
-    return await ctx.db.query("jobs").order("desc").collect();
+    return await ctx.db.query("jobs").order("desc").take(20);
   },
 });
 
-export const create = mutation({
-  args: { repositoryUrl: v.string() },
-  handler: async (ctx, { repositoryUrl }) => {
-    const normalizedUrl = repositoryUrl.trim();
-    if (!normalizedUrl) {
-      throw new Error("Repository URL is required.");
-    }
-
-    return await ctx.db.insert("jobs", {
-      repositoryUrl: normalizedUrl,
-      status: "queued",
-    });
+// TEMPORARY: replaced by a validated `create` in Phase 6.
+export const createTest = mutation({
+  args: { repoUrl: v.string() },
+  handler: async (ctx, { repoUrl }) => {
+    return await ctx.db.insert("jobs", { repoUrl, status: "pending" });
   },
 });

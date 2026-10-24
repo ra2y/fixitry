@@ -33,3 +33,10 @@ dist-ssr
 # Fixitry runtime data
 .fixitry-tmp/
 scan-output/
+
+.agents/
+.claude/
+
+AGENTS.md 
+CLAUDE.md 
+convex/_generated/ai/
