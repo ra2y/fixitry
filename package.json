@@ -7,12 +7,14 @@
     "dev": "vite",
     "convex:dev": "convex dev",
     "worker": "tsx worker/index.ts",
+    "droid:smoke": "tsx worker/droidSmoke.ts",
     "build": "tsc -b && vite build",
     "lint": "oxlint",
     "preview": "vite preview",
     "typecheck:worker": "tsc -p worker/tsconfig.json"
   },
   "dependencies": {
+    "@factory/droid-sdk": "0.10.0",
     "convex": "^1.48.0",
     "dotenv": "^18.0.9",
     "react": "^19.3.1",

@@ -13,6 +13,7 @@ function required(name: string): string {
 export const config = {
   convexUrl: required("CONVEX_URL"),
   workerSecret: required("WORKER_SECRET"),
+  factoryApiKey: required("FACTORY_API_KEY"),
   allowedRepositories: [required("DEMO_REPOSITORY_URL")],
   workerId: `worker-${process.pid}`,
   pollIntervalMs: 3000,
