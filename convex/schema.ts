@@ -14,6 +14,20 @@ export const jobStatus = v.union(
   v.literal("failed"),
 );
 
+export const findingFields = {
+  fingerprint: v.string(),
+  kind: v.union(v.literal("vulnerability"), v.literal("secret"), v.literal("misconfiguration")),
+  severity: v.union(v.literal("CRITICAL"), v.literal("HIGH"), v.literal("MEDIUM"), v.literal("LOW"), v.literal("UNKNOWN")),
+  ruleId: v.string(),
+  title: v.string(),
+  target: v.string(),
+  description: v.string(),
+  startLine: v.optional(v.number()),
+  packageName: v.optional(v.string()),
+  installedVersion: v.optional(v.string()),
+  fixedVersion: v.optional(v.string()),
+};
+
 export default defineSchema({
   jobs: defineTable({
     repoUrl: v.string(),
@@ -27,4 +41,9 @@ export default defineSchema({
     source: v.union(v.literal("worker"), v.literal("trivy"), v.literal("droid"), v.literal("tests")),
     message: v.string(),
   }).index("by_job", ["jobId"]),
+  findings: defineTable({
+    jobId: v.id("jobs"),
+    scanRound: v.union(v.literal("initial"), v.literal("verification")),
+    ...findingFields,
+  }).index("by_job_round", ["jobId", "scanRound"]),
 });

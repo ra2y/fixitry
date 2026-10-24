@@ -12,6 +12,12 @@ import { mkdir, stat } from "node:fs/promises";
 import path from "node:path";
 import { runTrivy } from "./trivy";
 
+import { readFile } from "node:fs/promises";
+import { parseTrivy } from "./parseTrivy";
+import { saveFindings } from "./convexClient";
+
+
+
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 let stopping = false;
 process.on("SIGINT", () => {
@@ -62,8 +68,10 @@ async function processScan(job: Doc<"jobs">) {
       `Scan finished, JSON is ${size} bytes`,
     );
 
-    // Temporary placeholder until Phase 9
-    throw new Error("Parsing not implemented yet");
+    const findings = parseTrivy(JSON.parse(await readFile(file, "utf8")));
+    await saveFindings(job._id, "initial", findings);
+    await logEvent(job._id, "trivy", `Parsed ${findings.length} findings`);
+    await setStatus(job._id, findings.length > 0 ? "awaiting_approval" : "completed");
   } finally {
     await removeJobDir(jobDir);
     await logEvent(job._id, "worker", "Temporary directory removed");

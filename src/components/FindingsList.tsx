@@ -1,0 +1,27 @@
+import { useQuery } from "convex/react";
+import { api } from "../../convex/_generated/api";
+import type { Id } from "../../convex/_generated/dataModel";
+
+const ORDER = { CRITICAL: 0, HIGH: 1, MEDIUM: 2, LOW: 3, UNKNOWN: 4 } as const;
+
+export function FindingsList({ jobId }: { jobId: Id<"jobs"> }) {
+  const all = useQuery(api.findings.listByJob, { jobId });
+  if (all === undefined) return <p>Loading findings…</p>;
+  const findings = all
+    .filter((f) => f.scanRound === "initial")
+    .sort((a, b) => ORDER[a.severity] - ORDER[b.severity]);
+  if (findings.length === 0) return <p>No findings.</p>;
+  return (
+    <table>
+      <thead><tr><th>Severity</th><th>Type</th><th>Title</th><th>File</th><th>Package</th></tr></thead>
+      <tbody>
+        {findings.map((f) => (
+          <tr key={f._id}>
+            <td>{f.severity}</td><td>{f.kind}</td><td>{f.title}</td><td>{f.target}</td>
+            <td>{f.packageName ? `${f.packageName} ${f.installedVersion} → ${f.fixedVersion ?? "no fix"}` : ""}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+}
