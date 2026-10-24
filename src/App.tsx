@@ -1,25 +1,15 @@
-import { useMutation, useQuery } from "convex/react";
-import { api } from "../convex/_generated/api";
+import { useState } from "react";
+import type { Id } from "../convex/_generated/dataModel";
+import { ScanForm } from "./components/ScanForm";
+import { ScanStatus } from "./components/ScanStatus";
 
 function App() {
-  const jobs = useQuery(api.jobs.list);
-  const createTest = useMutation(api.jobs.createTest);
-
+  const [jobId, setJobId] = useState<Id<"jobs"> | null>(null);
   return (
     <main>
       <h1>Fixitry</h1>
-      <button onClick={() => createTest({ repoUrl: "https://github.com/example/test" })}>
-        Create test job
-      </button>
-      {jobs === undefined ? (
-        <p>Loading…</p>
-      ) : (
-        <ul>
-          {jobs.map((j) => (
-            <li key={j._id}>{j.repoUrl}: {j.status}</li>
-          ))}
-        </ul>
-      )}
+      <ScanForm />
+      <ScanStatus selectedJobId={jobId} onSelect={setJobId} />
     </main>
   );
 }

@@ -10,6 +10,7 @@
 
 import type * as jobs from "../jobs.js";
 import type * as lib_auth from "../lib/auth.js";
+import type * as lib_repoUrl from "../lib/repoUrl.js";
 
 import type {
   ApiFromModules,
@@ -20,6 +21,7 @@ import type {
 declare const fullApi: ApiFromModules<{
   jobs: typeof jobs;
   "lib/auth": typeof lib_auth;
+  "lib/repoUrl": typeof lib_repoUrl;
 }>;
 
 /**

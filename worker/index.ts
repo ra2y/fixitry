@@ -1,4 +1,5 @@
 import type { Doc } from "../convex/_generated/dataModel";
+import { isAllowed } from "../convex/lib/repoUrl";
 import { api } from "../convex/_generated/api";
 import { config } from "./config";
 import { convex } from "./convexClient";
@@ -26,6 +27,9 @@ async function setStatus(
 }
 
 async function processJob({ kind, job }: Claimed) {
+  if (!isAllowed(job.repoUrl, config.allowedRepositories)) {
+    throw new Error("Repository is not on the worker allowlist");
+  }
   console.log(`Claimed ${kind} job ${job._id} (${job.repoUrl})`);
   // Placeholder until Phase 7
   await setStatus(job._id, kind === "scan" ? "scanning" : "testing");

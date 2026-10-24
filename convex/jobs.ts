@@ -1,8 +1,9 @@
 import { mutation, query } from "./_generated/server";
-import { v } from "convex/values";
+import { ConvexError, v } from "convex/values";
 import { assertWorker } from "./lib/auth";
 import type { Doc } from "./_generated/dataModel";
 import { jobStatus } from "./schema";
+import { isAllowed, parseGithubRepoUrl } from "./lib/repoUrl";
 
 type Status = Doc<"jobs">["status"];
 
@@ -24,11 +25,20 @@ export const list = query({
   },
 });
 
-// TEMPORARY: replaced by a validated `create` in Phase 6.
-export const createTest = mutation({
+export const create = mutation({
   args: { repoUrl: v.string() },
   handler: async (ctx, { repoUrl }) => {
-    return await ctx.db.insert("jobs", { repoUrl, status: "pending" });
+    const allowlist = (process.env.ALLOWED_REPOSITORIES ?? "")
+      .split(",")
+      .map((entry) => entry.trim())
+      .filter(Boolean);
+    try {
+      if (!isAllowed(repoUrl, allowlist)) throw new Error("Repository is not on the allowlist");
+      const { canonicalUrl } = parseGithubRepoUrl(repoUrl);
+      return await ctx.db.insert("jobs", { repoUrl: canonicalUrl, status: "pending" });
+    } catch (error) {
+      throw new ConvexError(error instanceof Error ? error.message : "Invalid repository");
+    }
   },
 });
 

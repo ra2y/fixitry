@@ -11,6 +11,7 @@ function required(name: string): string {
 export const config = {
   convexUrl: required("CONVEX_URL"),
   workerSecret: required("WORKER_SECRET"),
+  allowedRepositories: [required("DEMO_REPOSITORY_URL")],
   workerId: `worker-${process.pid}`,
   pollIntervalMs: 3000,
 };
