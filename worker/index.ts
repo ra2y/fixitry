@@ -8,6 +8,10 @@ import { createJobDir, cloneRepo, headSha } from "./repository";
 import { removeJobDir } from "./cleanup";
 import { logEvent } from "./convexClient";
 
+import { mkdir, stat } from "node:fs/promises";
+import path from "node:path";
+import { runTrivy } from "./trivy";
+
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 let stopping = false;
 process.on("SIGINT", () => {
@@ -32,12 +36,34 @@ async function setStatus(
 
 async function processScan(job: Doc<"jobs">) {
   const jobDir = await createJobDir();
+  const outDir = path.join(jobDir, "out");
+
   try {
+    await mkdir(outDir);
+
     await logEvent(job._id, "worker", `Cloning ${job.repoUrl}`);
+
     const repoDir = await cloneRepo(job.repoUrl, jobDir);
-    await logEvent(job._id, "worker", `Cloned at commit ${(await headSha(repoDir)).slice(0, 8)}`);
+
+    await logEvent(
+      job._id,
+      "worker",
+      `Cloned at commit ${(await headSha(repoDir)).slice(0, 8)}`,
+    );
+
     await setStatus(job._id, "scanning");
-    throw new Error("Scan not implemented yet (clone succeeded)");
+
+    const file = await runTrivy(repoDir, outDir, "initial");
+    const size = (await stat(file)).size;
+
+    await logEvent(
+      job._id,
+      "trivy",
+      `Scan finished, JSON is ${size} bytes`,
+    );
+
+    // Temporary placeholder until Phase 9
+    throw new Error("Parsing not implemented yet");
   } finally {
     await removeJobDir(jobDir);
     await logEvent(job._id, "worker", "Temporary directory removed");
