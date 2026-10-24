@@ -40,6 +40,11 @@ async function setStatus(
   });
 }
 
+async function processRepair(job: Doc<"jobs">) {
+  await logEvent(job._id, "worker", `Repair job claimed for finding ${job.selectedFindingId}`);
+  throw new Error("Repair not implemented yet");
+}
+
 async function processScan(job: Doc<"jobs">) {
   const jobDir = await createJobDir();
   const outDir = path.join(jobDir, "out");
@@ -72,6 +77,9 @@ async function processScan(job: Doc<"jobs">) {
     await saveFindings(job._id, "initial", findings);
     await logEvent(job._id, "trivy", `Parsed ${findings.length} findings`);
     await setStatus(job._id, findings.length > 0 ? "awaiting_approval" : "completed");
+
+    const sha = await headSha(repoDir);
+    await convex.mutation(api.jobs.setCommit, { secret: config.workerSecret, jobId: job._id, commitSha: sha });
   } finally {
     await removeJobDir(jobDir);
     await logEvent(job._id, "worker", "Temporary directory removed");
@@ -80,6 +88,7 @@ async function processScan(job: Doc<"jobs">) {
 
 async function processJob({ kind, job }: Claimed) {
   if (kind === "scan") return processScan(job);
+  if (kind === "repair") return processRepair(job);
   throw new Error("Repair not implemented yet");
 }
 

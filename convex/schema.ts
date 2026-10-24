@@ -34,6 +34,9 @@ export default defineSchema({
     status: jobStatus,
     error: v.optional(v.string()),
     claimedBy: v.optional(v.string()),
+    selectedFindingId: v.optional(v.id("findings")),
+    approvedAt: v.optional(v.number()),
+    commitSha: v.optional(v.string()),
   }).index("by_status", ["status"]),
   events: defineTable({
   jobId: v.id("jobs"),

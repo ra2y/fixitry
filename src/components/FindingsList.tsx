@@ -4,7 +4,17 @@ import type { Id } from "../../convex/_generated/dataModel";
 
 const ORDER = { CRITICAL: 0, HIGH: 1, MEDIUM: 2, LOW: 3, UNKNOWN: 4 } as const;
 
-export function FindingsList({ jobId }: { jobId: Id<"jobs"> }) {
+type Props = {
+  jobId: Id<"jobs">;
+  selectedId: Id<"findings"> | null;
+  onSelect: (id: Id<"findings">) => void;
+};
+
+export function FindingsList({ 
+  jobId, 
+  selectedId, 
+  onSelect, 
+}: Props) {
   const all = useQuery(api.findings.listByJob, { jobId });
   if (all === undefined) return <p>Loading findings…</p>;
   const findings = all
@@ -16,7 +26,14 @@ export function FindingsList({ jobId }: { jobId: Id<"jobs"> }) {
       <thead><tr><th>Severity</th><th>Type</th><th>Title</th><th>File</th><th>Package</th></tr></thead>
       <tbody>
         {findings.map((f) => (
-          <tr key={f._id}>
+          <tr 
+            key={f._id}
+            onClick={() => onSelect(f._id)}
+            style={{
+              cursor: "pointer",
+              fontWeight: f._id === selectedId ? 700 : 400,
+            }}
+          >
             <td>{f.severity}</td><td>{f.kind}</td><td>{f.title}</td><td>{f.target}</td>
             <td>{f.packageName ? `${f.packageName} ${f.installedVersion} → ${f.fixedVersion ?? "no fix"}` : ""}</td>
           </tr>

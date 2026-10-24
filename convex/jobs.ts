@@ -104,3 +104,39 @@ export const workerPing = query({
     return { ok: true, pendingCount: pending.length };
   },
 });
+
+export const get = query({
+  args: { jobId: v.id("jobs") },
+  handler: async (ctx, { jobId }) => await ctx.db.get(jobId),
+});
+
+export const setCommit = mutation({
+  args: { secret: v.string(), jobId: v.id("jobs"), commitSha: v.string() },
+  handler: async (ctx, { secret, jobId, commitSha }) => {
+    assertWorker(secret);
+    await ctx.db.patch(jobId, { commitSha });
+  },
+});
+
+export const approveFinding = mutation({
+  args: { jobId: v.id("jobs"), findingId: v.id("findings") },
+  handler: async (ctx, { jobId, findingId }) => {
+    const job = await ctx.db.get(jobId);
+    if (!job) throw new ConvexError("Job not found");
+    if (job.status !== "awaiting_approval") throw new ConvexError(`Job is ${job.status}, not awaiting approval`);
+
+    const finding = await ctx.db.get(findingId);
+    if (!finding || finding.jobId !== jobId || finding.scanRound !== "initial") {
+      throw new ConvexError("Finding does not belong to this job");
+    }
+    await ctx.db.patch(jobId, { status: "approved", selectedFindingId: findingId, approvedAt: Date.now() });
+  },
+});
+
+export const getFinding = query({
+  args: { secret: v.string(), findingId: v.id("findings") },
+  handler: async (ctx, { secret, findingId }) => {
+    assertWorker(secret);
+    return await ctx.db.get(findingId);
+  },
+});
