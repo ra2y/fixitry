@@ -14,6 +14,8 @@ import { mkdir, readFile, stat } from "node:fs/promises";
 import path from "node:path";
 import { runTrivy } from "./trivy";
 import { parseTrivy } from "./parseTrivy";
+import { runSemgrep } from "./semgrep";
+import { parseSemgrep } from "./parseSemgrep";
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 let stopping = false;
@@ -95,8 +97,14 @@ async function processRepair(job: Doc<"jobs">) {
       await logEvent(job._id, "trivy", "Running verification scan");
       const outDir = path.join(jobDir, "out");
       await mkdir(outDir, { recursive: true });
-      const file = await runTrivy(repoDir, outDir, "verification");
-      const after = parseTrivy(JSON.parse(await readFile(file, "utf8")));
+      const trivyFile = await runTrivy(repoDir, outDir, "verification");
+      const trivyAfter = parseTrivy(JSON.parse(await readFile(trivyFile, "utf8"))).map((entry) => ({
+        ...entry, source: "trivy" as const,
+      }));
+      await logEvent(job._id, "semgrep", "Running verification scan");
+      const semgrepFile = await runSemgrep(repoDir, outDir, "verification");
+      const semgrepAfter = await parseSemgrep(JSON.parse(await readFile(semgrepFile, "utf8")), repoDir);
+      const after = [...trivyAfter, ...semgrepAfter];
       await saveFindings(job._id, "verification", after);
       const before = await convex.query(api.findings.listForWorker, {
         secret: config.workerSecret, jobId: job._id, scanRound: "initial",
@@ -210,9 +218,16 @@ async function processScan(job: Doc<"jobs">) {
       `Scan finished, JSON is ${size} bytes`,
     );
 
-    const findings = parseTrivy(JSON.parse(await readFile(file, "utf8")));
+    const trivyFindings = parseTrivy(JSON.parse(await readFile(file, "utf8"))).map((entry) => ({
+      ...entry, source: "trivy" as const,
+    }));
+    await logEvent(job._id, "trivy", `Parsed ${trivyFindings.length} findings`);
+    await logEvent(job._id, "semgrep", "Running Semgrep (no network, read-only source)");
+    const semgrepFile = await runSemgrep(repoDir, outDir, "initial");
+    const semgrepFindings = await parseSemgrep(JSON.parse(await readFile(semgrepFile, "utf8")), repoDir);
+    await logEvent(job._id, "semgrep", `Parsed ${semgrepFindings.length} findings`);
+    const findings = [...trivyFindings, ...semgrepFindings];
     await saveFindings(job._id, "initial", findings);
-    await logEvent(job._id, "trivy", `Parsed ${findings.length} findings`);
     const sha = await headSha(repoDir);
     await convex.mutation(api.jobs.setCommit, { secret: config.workerSecret, jobId: job._id, commitSha: sha });
     await setStatus(job._id, findings.length > 0 ? "awaiting_approval" : "completed");

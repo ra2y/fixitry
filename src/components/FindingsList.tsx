@@ -23,7 +23,7 @@ export function FindingsList({
   if (findings.length === 0) return <p>No findings.</p>;
   return (
     <table>
-      <thead><tr><th>Severity</th><th>Type</th><th>Title</th><th>File</th><th>Package</th></tr></thead>
+      <thead><tr><th>Severity</th><th>Source</th><th>Type</th><th>Title</th><th>File</th><th>Package</th></tr></thead>
       <tbody>
         {findings.map((f) => (
           <tr 
@@ -34,7 +34,7 @@ export function FindingsList({
               fontWeight: f._id === selectedId ? 700 : 400,
             }}
           >
-            <td>{f.severity}</td><td>{f.kind}</td><td>{f.title}</td><td>{f.target}</td>
+            <td>{f.severity}</td><td>{f.source ?? "trivy"}</td><td>{f.kind}</td><td>{f.title}</td><td>{f.target}</td>
             <td>{f.packageName ? `${f.packageName} ${f.installedVersion} → ${f.fixedVersion ?? "no fix"}` : ""}</td>
           </tr>
         ))}

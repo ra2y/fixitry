@@ -18,7 +18,8 @@ export const jobStatus = v.union(
 
 export const findingFields = {
   fingerprint: v.string(),
-  kind: v.union(v.literal("vulnerability"), v.literal("secret"), v.literal("misconfiguration")),
+  kind: v.union(v.literal("vulnerability"), v.literal("secret"), v.literal("misconfiguration"), v.literal("code")),
+  source: v.optional(v.union(v.literal("trivy"), v.literal("semgrep"))),
   severity: v.union(v.literal("CRITICAL"), v.literal("HIGH"), v.literal("MEDIUM"), v.literal("LOW"), v.literal("UNKNOWN")),
   ruleId: v.string(),
   title: v.string(),
@@ -45,7 +46,7 @@ export default defineSchema({
   events: defineTable({
   jobId: v.id("jobs"),
     level: v.union(v.literal("info"), v.literal("warn"), v.literal("error")),
-    source: v.union(v.literal("worker"), v.literal("trivy"), v.literal("droid"), v.literal("tests")),
+    source: v.union(v.literal("worker"), v.literal("trivy"), v.literal("droid"), v.literal("tests"), v.literal("semgrep")),
     message: v.string(),
   }).index("by_job", ["jobId"]),
   findings: defineTable({

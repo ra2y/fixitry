@@ -20,6 +20,9 @@ export const config = {
   pollIntervalMs: 3000,
   workRoot: path.join(os.tmpdir(), "fixitry"),
   keepTmp: process.env.FIXITRY_KEEP_TMP === "1", // debugging only
+  semgrepMode: (process.env.SEMGREP_MODE ?? "docker") as "docker" | "local",
+  semgrepImage: process.env.SEMGREP_IMAGE ?? "",
+  rulesDir: path.resolve("semgrep-rules"),
 };
 
 // Secrets now live only in `config`. Child processes inherit process.env, so remove them.

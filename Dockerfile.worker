@@ -25,6 +25,13 @@ ENV PATH="/home/node/.local/bin:${PATH}"
 ENV FIXITRY_PYTHON=python3
 RUN mkdir -p /home/node/.cache/trivy
 
+ARG SEMGREP_VERSION
+ENV SEMGREP_MODE=local \
+    SEMGREP_SEND_METRICS=off
+RUN python3 -m venv /home/node/semgrep-venv \
+ && /home/node/semgrep-venv/bin/pip install --no-cache-dir "semgrep==${SEMGREP_VERSION}"
+ENV PATH="/home/node/semgrep-venv/bin:${PATH}"
+
 # Droid CLI
 RUN curl -fsSL https://app.factory.ai/cli | sh
 
@@ -34,5 +41,6 @@ RUN npm ci
 COPY --chown=node:node worker ./worker
 COPY --chown=node:node shared ./shared
 COPY --chown=node:node convex ./convex
+COPY --chown=node:node semgrep-rules ./semgrep-rules
 
 CMD ["npx", "tsx", "worker/index.ts"]

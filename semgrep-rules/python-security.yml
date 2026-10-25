@@ -1,0 +1,85 @@
+# Fixitry's pinned, locally authored Python security rules.
+rules:
+  - id: fixitry-sql-injection
+    mode: taint
+    languages: [python]
+    severity: ERROR
+    message: >-
+      Request data is used to build a SQL query. Use parameterized queries.
+    metadata:
+      category: security
+      cwe: "CWE-89: SQL Injection"
+      confidence: HIGH
+    pattern-sources:
+      - pattern: request.args.get(...)
+      - pattern: request.form.get(...)
+    pattern-sinks:
+      - patterns:
+          - pattern: $DB.execute($QUERY, ...)
+          - focus-metavariable: $QUERY
+
+  - id: fixitry-path-traversal
+    mode: taint
+    languages: [python]
+    severity: ERROR
+    message: >-
+      Request data reaches a file path. Sanitize the filename and keep it
+      inside the intended directory.
+    metadata:
+      category: security
+      cwe: "CWE-22: Path Traversal"
+      confidence: HIGH
+    pattern-sources:
+      - pattern: request.args.get(...)
+      - pattern: request.form.get(...)
+    pattern-sanitizers:
+      - pattern: os.path.basename(...)
+      - pattern: secure_filename(...)
+    pattern-sinks:
+      - patterns:
+          - pattern: open($PATH, ...)
+          - focus-metavariable: $PATH
+
+  - id: fixitry-template-injection
+    mode: taint
+    languages: [python]
+    severity: ERROR
+    message: >-
+      Request data is concatenated into a template string. Pass it as a
+      template variable so it is escaped.
+    metadata:
+      category: security
+      cwe: "CWE-79: Cross-Site Scripting"
+      confidence: HIGH
+    pattern-sources:
+      - pattern: request.args.get(...)
+      - pattern: request.form.get(...)
+    pattern-sinks:
+      - patterns:
+          - pattern: render_template_string($TEMPLATE, ...)
+          - focus-metavariable: $TEMPLATE
+
+  - id: fixitry-weak-hash
+    languages: [python]
+    severity: WARNING
+    message: >-
+      MD5 and SHA-1 are weak hash functions. Use SHA-256 or stronger.
+    metadata:
+      category: security
+      cwe: "CWE-327: Risky Cryptographic Algorithm"
+      confidence: MEDIUM
+    pattern-either:
+      - pattern: hashlib.md5(...)
+      - pattern: hashlib.sha1(...)
+
+  - id: fixitry-shell-true
+    languages: [python]
+    severity: ERROR
+    message: >-
+      subprocess is called with shell=True. Pass an argument list and leave
+      shell disabled so input cannot be interpreted as shell syntax.
+    metadata:
+      category: security
+      cwe: "CWE-78: OS Command Injection"
+      confidence: MEDIUM
+    pattern: subprocess.$FUNC(..., shell=True, ...)
