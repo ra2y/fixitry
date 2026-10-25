@@ -1,0 +1,38 @@
+FROM node:22-bookworm-slim
+
+ARG TRIVY_VERSION
+ARG TARGETARCH
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+      git ca-certificates curl xdg-utils python3 python3-venv python3-pip \
+    && rm -rf /var/lib/apt/lists/*
+
+# Trivy: pinned version, checksum verified
+RUN set -eux; \
+    case "$TARGETARCH" in amd64) A=Linux-64bit;; arm64) A=Linux-ARM64;; *) echo "unsupported arch"; exit 1;; esac; \
+    base="https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}"; \
+    curl -fsSLO "$base/trivy_${TRIVY_VERSION}_${A}.deb"; \
+    curl -fsSLO "$base/trivy_${TRIVY_VERSION}_checksums.txt"; \
+    grep "trivy_${TRIVY_VERSION}_${A}.deb" "trivy_${TRIVY_VERSION}_checksums.txt" | sha256sum -c -; \
+    dpkg -i "trivy_${TRIVY_VERSION}_${A}.deb"; \
+    rm -f trivy_*
+
+# Everything below runs as the unprivileged "node" user that the base image provides.
+USER node
+ENV HOME=/home/node
+ENV PATH="/home/node/.local/bin:${PATH}"
+# The image's Python, not the host's (the demo's pytest 7.1.2 needs Python 3.8-3.13).
+ENV FIXITRY_PYTHON=python3
+RUN mkdir -p /home/node/.cache/trivy
+
+# Droid CLI
+RUN curl -fsSL https://app.factory.ai/cli | sh
+
+WORKDIR /app
+COPY --chown=node:node package.json package-lock.json ./
+RUN npm ci
+COPY --chown=node:node worker ./worker
+COPY --chown=node:node shared ./shared
+COPY --chown=node:node convex ./convex
+
+CMD ["npx", "tsx", "worker/index.ts"]

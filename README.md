@@ -4,7 +4,7 @@ Fixitry scans one allowlisted GitHub repository, shows findings in a live Convex
 
 ## Current phase
 
-The implementation reaches Phase 15, the complete local MVP. After an approved repair, the worker records Droid activity, rejects edits outside the selected finding's allowed files, stores a patch, runs the demo's Python tests in a virtual environment outside the repository, and scans again with Trivy. It records resolved, remaining, and introduced findings before deleting the clone. An attempt succeeds only when the tests pass and the selected finding is gone. The dashboard shows the before/after comparison, test result, agent summary, and patch.
+The implementation reaches Phase 16: the complete local MVP, plus a Docker image for the worker. After an approved repair, the worker records Droid activity, rejects edits outside the selected finding's allowed files, stores a patch, runs the demo's Python tests in a virtual environment outside the repository, and scans again with Trivy. It records resolved, remaining, and introduced findings before deleting the clone. An attempt succeeds only when the tests pass and the selected finding is gone. The dashboard shows the before/after comparison, test result, agent summary, and patch.
 
 Phase 15 hardening: the worker removes `WORKER_SECRET`, `FACTORY_API_KEY`, and `GITHUB_TOKEN` from its own environment after loading config, so no child process (including Droid) inherits them. Convex accepts only one active job at a time. At startup the worker fails any jobs left mid-flight by a previous run and deletes `job-*` temporary directories older than one hour.
 
@@ -18,6 +18,25 @@ Phase 15 hardening: the worker removes `WORKER_SECRET`, `FACTORY_API_KEY`, and `
 6. The demo pins pytest 7.1.2, which fails on Python 3.14 and newer. The worker builds the test venv with `FIXITRY_PYTHON` (default `python3`); set it in `.env` to a Python 3.8–3.13 interpreter, e.g. `FIXITRY_PYTHON=python3.13`.
 
 Keep `.env`, `.env.local`, and real secrets out of Git. Never prefix a secret with `VITE_`. The worker clones the demo repository anonymously, so it must be publicly readable with the current setup.
+
+## Docker worker
+
+`Dockerfile.worker` packages Node 22, Git, Python 3.11, Trivy (pinned and checksum-verified) and the Droid CLI, and runs the worker as the unprivileged `node` user. `.dockerignore` keeps `.env` files, `.git`, and the frontend out of the build context; secrets are supplied only at runtime. `convex/_generated` is git-ignored but copied into the image, so run `npx convex dev` (or `npx convex codegen`) before building from a fresh clone.
+
+```sh
+docker build -f Dockerfile.worker -t fixitry-worker --build-arg TRIVY_VERSION=0.76.1 .
+docker run --rm --env-file .env -e FIXITRY_PYTHON=python3 \
+  --cap-drop ALL --security-opt no-new-privileges \
+  --tmpfs /tmp:rw,size=2g \
+  -v fixitry-trivy-cache:/home/node/.cache/trivy \
+  fixitry-worker
+```
+
+- Values in `.env` must be unquoted; Docker does not strip quotes.
+- `-e FIXITRY_PYTHON=python3` overrides the host interpreter name from `.env` with the image's Python.
+- Stop the local worker first. On startup the container fails any in-flight jobs (single-worker assumption).
+- `/tmp` is a `noexec` tmpfs. The demo's pure-Python dependencies work; a repository needing compiled extensions in its test venv would need `exec` added to the tmpfs options.
+- Verify: `docker run --rm fixitry-worker id` prints `uid=1000(node)`, and `docker run --rm fixitry-worker sh -c "which droid && droid --version && trivy --version && git --version && python3 --version"` prints all five tools.
 
 ## Checks
 

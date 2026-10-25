@@ -1,0 +1,10 @@
+.git
+node_modules
+dist
+docs
+src
+.env
+.env.*
+!.env.example
+*.pem
+*.key
