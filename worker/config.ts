@@ -20,3 +20,8 @@ export const config = {
   workRoot: path.join(os.tmpdir(), "fixitry"),
   keepTmp: process.env.FIXITRY_KEEP_TMP === "1", // debugging only
 };
+
+// Secrets now live only in `config`. Child processes inherit process.env, so remove them.
+delete process.env.WORKER_SECRET;
+delete process.env.FACTORY_API_KEY;
+delete process.env.GITHUB_TOKEN;

@@ -4,7 +4,7 @@ import { config } from "./config";
 import { convex, logEvent, saveFindings } from "./convexClient";
 
 import { createJobDir, cloneRepo, headSha, changedFiles, revertAll, stagedPatch } from "./repository";
-import { removeJobDir } from "./cleanup";
+import { removeJobDir, sweepOldJobDirs } from "./cleanup";
 import { allowedFilesFor, runRepair } from "./droid";
 import { runPythonTests, type TestResult } from "./tests";
 import { compareFindings } from "../shared/compare";
@@ -178,6 +178,9 @@ async function processJob({ kind, job }: Claimed) {
 }
 
 async function main() {
+  // Single-worker assumption: anything left mid-flight belonged to a previous run of this worker.
+  await convex.mutation(api.jobs.failOrphans, { secret: config.workerSecret });
+  await sweepOldJobDirs();
   console.log(`[${config.workerId}] polling every ${config.pollIntervalMs} ms`);
   while (!stopping) {
     try {

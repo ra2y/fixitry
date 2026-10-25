@@ -32,6 +32,11 @@ export const create = mutation({
       .split(",")
       .map((entry) => entry.trim())
       .filter(Boolean);
+    const busy = await Promise.all(
+      (["pending", "cloning", "scanning", "approved", "repairing", "testing", "verifying"] as const).map((s) =>
+        ctx.db.query("jobs").withIndex("by_status", (q) => q.eq("status", s)).first()),
+    );
+    if (busy.some(Boolean)) throw new ConvexError("Another job is in progress");
     try {
       if (!isAllowed(repoUrl, allowlist)) throw new Error("Repository is not on the allowlist");
       const { canonicalUrl } = parseGithubRepoUrl(repoUrl);
@@ -89,6 +94,17 @@ export const setStatus = mutation({
       status,
       ...(error ? { error: error.slice(0, 1000) } : {}),
     });
+  },
+});
+
+export const failOrphans = mutation({
+  args: { secret: v.string() },
+  handler: async (ctx, { secret }) => {
+    assertWorker(secret);
+    for (const s of ["cloning", "scanning", "repairing", "testing", "verifying"] as const) {
+      const stuck = await ctx.db.query("jobs").withIndex("by_status", (q) => q.eq("status", s)).collect();
+      for (const j of stuck) await ctx.db.patch(j._id, { status: "failed", error: "Worker restarted during this job" });
+    }
   },
 });
 

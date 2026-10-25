@@ -1,4 +1,4 @@
-import { rm } from "node:fs/promises";
+import { readdir, rm, stat } from "node:fs/promises";
 import path from "node:path";
 import { config } from "./config";
 
@@ -17,4 +17,13 @@ export async function removeJobDir(jobDir: string): Promise<void> {
   const resolved = assertInsideWorkRoot(jobDir);
   if (!path.basename(resolved).startsWith("job-")) throw new Error("Unexpected job directory name");
   await rm(resolved, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 });
+}
+
+export async function sweepOldJobDirs(maxAgeMs = 60 * 60_000): Promise<void> {
+  let names: string[] = [];
+  try { names = await readdir(config.workRoot); } catch { return; }
+  for (const n of names.filter((x) => x.startsWith("job-"))) {
+    const p = path.join(config.workRoot, n);
+    if (Date.now() - (await stat(p)).mtimeMs > maxAgeMs) await removeJobDir(p);
+  }
 }
