@@ -10,6 +10,8 @@ export const jobStatus = v.union(
   v.literal("repairing"),
   v.literal("testing"),
   v.literal("verifying"),
+  v.literal("awaiting_push_approval"),
+  v.literal("pushing"),
   v.literal("completed"),
   v.literal("failed"),
 );
@@ -37,6 +39,8 @@ export default defineSchema({
     selectedFindingId: v.optional(v.id("findings")),
     approvedAt: v.optional(v.number()),
     commitSha: v.optional(v.string()),
+    branchName: v.optional(v.string()),
+    pullRequestUrl: v.optional(v.string()),
   }).index("by_status", ["status"]),
   events: defineTable({
   jobId: v.id("jobs"),

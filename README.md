@@ -4,7 +4,7 @@ Fixitry scans one allowlisted GitHub repository, shows findings in a live Convex
 
 ## Current phase
 
-The implementation reaches Phase 16: the complete local MVP, plus a Docker image for the worker. After an approved repair, the worker records Droid activity, rejects edits outside the selected finding's allowed files, stores a patch, runs the demo's Python tests in a virtual environment outside the repository, and scans again with Trivy. It records resolved, remaining, and introduced findings before deleting the clone. An attempt succeeds only when the tests pass and the selected finding is gone. The dashboard shows the before/after comparison, test result, agent summary, and patch.
+The implementation reaches Phase 18: the complete local MVP, Docker worker support, and an optional second approval before a branch and pull request. After an approved repair, the worker records Droid activity, rejects edits outside the selected finding's allowed files, stores a patch, runs the demo's Python tests in a virtual environment outside the repository, and scans again with Trivy. It records resolved, remaining, and introduced findings before deleting the clone. A verified repair can wait for a separate push approval; the worker then re-clones, re-applies and re-validates the stored patch, pushes a generated branch, and opens a pull request. The dashboard shows the before/after comparison, test result, agent summary, patch, and pull request link.
 
 Phase 15 hardening: the worker removes `WORKER_SECRET`, `FACTORY_API_KEY`, and `GITHUB_TOKEN` from its own environment after loading config, so no child process (including Droid) inherits them. Convex accepts only one active job at a time. At startup the worker fails any jobs left mid-flight by a previous run and deletes `job-*` temporary directories older than one hour.
 
@@ -58,5 +58,5 @@ For a live Phase 13 test, create a new scan and approve a dependency finding in 
 5. Prompt injection from repository content can influence the agent. Tools are limited and diffs are verified, but a human must still read the patch.
 6. Findings depend on Trivy's database freshness. A clean second scan is evidence, not proof.
 7. Only a Python/pytest test profile exists.
-8. No branch push or pull request is performed by the worker.
+8. Live branch/PR creation requires a narrowly scoped `GITHUB_TOKEN` and must be tested against a disposable repository before production use.
 9. `npm audit` reports zod (<4.6.6) and uuid (<11.1.1) advisories through `@factory/droid-sdk@0.10.0`, the latest release, which pins zod 3 and uuid 9. The only automatic fix downgrades the SDK, so these stay until Factory updates its dependencies.

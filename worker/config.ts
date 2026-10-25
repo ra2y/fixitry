@@ -15,6 +15,7 @@ export const config = {
   workerSecret: required("WORKER_SECRET"),
   factoryApiKey: required("FACTORY_API_KEY"),
   allowedRepositories: [required("DEMO_REPOSITORY_URL")],
+  githubToken: process.env.GITHUB_TOKEN,
   workerId: `worker-${process.pid}`,
   pollIntervalMs: 3000,
   workRoot: path.join(os.tmpdir(), "fixitry"),

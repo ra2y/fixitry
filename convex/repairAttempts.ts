@@ -63,3 +63,13 @@ export const listByJob = query({
   handler: async (ctx, { jobId }) => await ctx.db.query("repairAttempts")
     .withIndex("by_job", (q) => q.eq("jobId", jobId)).take(20),
 });
+
+export const getForWorker = query({
+  args: { secret: v.string(), jobId: v.id("jobs") },
+  returns: v.union(schema.doc("repairAttempts"), v.null()),
+  handler: async (ctx, { secret, jobId }) => {
+    assertWorker(secret);
+    return await ctx.db.query("repairAttempts")
+      .withIndex("by_job", (q) => q.eq("jobId", jobId)).first();
+  },
+});

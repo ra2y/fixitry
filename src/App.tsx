@@ -7,6 +7,7 @@ import { ProgressTimeline } from "./components/ProgressTimeline";
 import { FindingsList } from "./components/FindingsList";
 import { ApprovalPanel } from "./components/ApprovalPanel";
 import { ResultsComparison } from "./components/ResultsComparison";
+import { PushApprovalPanel } from "./components/PushApprovalPanel";
 
 
 function App() {
@@ -25,6 +26,7 @@ function App() {
       {jobId && <ProgressTimeline jobId={jobId} />}
       {jobId && <FindingsList jobId={jobId} selectedId={findingId} onSelect={setFindingId} />}
       {jobId && <ApprovalPanel jobId={jobId} findingId={findingId} />}
+      {jobId && <PushApprovalPanel jobId={jobId} />}
       {jobId && <ResultsComparison jobId={jobId} />}
     </main>
   );

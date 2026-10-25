@@ -6,6 +6,7 @@ import { convex, logEvent, saveFindings } from "./convexClient";
 import { createJobDir, cloneRepo, headSha, changedFiles, revertAll, stagedPatch } from "./repository";
 import { removeJobDir, sweepOldJobDirs } from "./cleanup";
 import { allowedFilesFor, runRepair } from "./droid";
+import { pushRepair } from "./github";
 import { runPythonTests, type TestResult } from "./tests";
 import { compareFindings } from "../shared/compare";
 
@@ -21,7 +22,7 @@ process.on("SIGINT", () => {
   stopping = true;
 });
 
-type Claimed = { kind: "scan" | "repair"; job: Doc<"jobs"> };
+type Claimed = { kind: "scan" | "repair" | "push"; job: Doc<"jobs"> };
 
 async function setStatus(
   jobId: Doc<"jobs">["_id"],
@@ -54,6 +55,7 @@ async function processRepair(job: Doc<"jobs">) {
   let summary = "";
   let patchInfo: { patch: string; truncated: boolean } | undefined;
   let tests: TestResult | undefined;
+  let repairSucceeded = false;
   try {
     jobDir = await createJobDir();
     const repoDir = await cloneRepo(job.repoUrl, jobDir);
@@ -102,9 +104,10 @@ async function processRepair(job: Doc<"jobs">) {
       const { resolved, remaining, introduced } = compareFindings(before, after);
       const selectedResolved = resolved.some((entry) => entry.fingerprint === finding.fingerprint);
       await logEvent(job._id, "trivy", `Verification: ${resolved.length} resolved, ${remaining.length} remaining, ${introduced.length} new`);
+      repairSucceeded = tests.passed && selectedResolved;
       await convex.mutation(api.repairAttempts.finish, {
         secret: config.workerSecret, attemptId,
-        status: tests.passed && selectedResolved ? "succeeded" : "failed",
+        status: repairSucceeded ? "succeeded" : "failed",
         summary, filesChanged: changed, patch: patchInfo.patch, patchTruncated: patchInfo.truncated,
         testsPassed: tests.passed, testOutput: tests.output,
         resolvedCount: resolved.length, remainingCount: remaining.length, newCount: introduced.length,
@@ -128,7 +131,55 @@ async function processRepair(job: Doc<"jobs">) {
       await logEvent(job._id, "worker", "Temporary directory removed");
     }
   }
-  await setStatus(job._id, "completed");
+  await setStatus(
+    job._id,
+    repairSucceeded && patchInfo?.truncated === false
+      ? "awaiting_push_approval"
+      : "completed",
+  );
+}
+
+async function processPush(job: Doc<"jobs">) {
+  if (!job.branchName) throw new Error("Push branch was not generated");
+  const attempt = await convex.query(api.repairAttempts.getForWorker, {
+    secret: config.workerSecret, jobId: job._id,
+  });
+  if (!attempt || attempt.status !== "succeeded" || !attempt.patch || attempt.patchTruncated) {
+    throw new Error("Repair attempt is not eligible for pushing");
+  }
+  if (!job.selectedFindingId) throw new Error("No approved finding is attached to this job");
+  const finding = await convex.query(api.jobs.getFinding, {
+    secret: config.workerSecret, findingId: job.selectedFindingId,
+  });
+  if (!finding || finding.jobId !== job._id) throw new Error("Approved finding not found for this job");
+
+  const jobDir = await createJobDir();
+  try {
+    const repoDir = await cloneRepo(job.repoUrl, jobDir);
+    if (job.commitSha && await headSha(repoDir) !== job.commitSha) {
+      throw new Error("Repository changed since verification; refusing to push");
+    }
+    await logEvent(job._id, "worker", `Re-applying verified patch to ${job.branchName}`);
+    const pushed = await pushRepair({
+      jobId: job._id,
+      repoUrl: job.repoUrl,
+      jobDir,
+      repoDir,
+      branchName: job.branchName,
+      patch: attempt.patch,
+      allowedFiles: allowedFilesFor(finding),
+      finding,
+      attempt,
+    });
+    await convex.mutation(api.jobs.markPushComplete, {
+      secret: config.workerSecret, jobId: job._id,
+      branchName: pushed.branchName, pullRequestUrl: pushed.pullRequestUrl,
+    });
+    await logEvent(job._id, "worker", `Pull request opened: ${pushed.pullRequestUrl}`);
+  } finally {
+    await removeJobDir(jobDir);
+    await logEvent(job._id, "worker", "Temporary push directory removed");
+  }
 }
 
 async function processScan(job: Doc<"jobs">) {
@@ -174,6 +225,7 @@ async function processScan(job: Doc<"jobs">) {
 async function processJob({ kind, job }: Claimed) {
   if (kind === "scan") return processScan(job);
   if (kind === "repair") return processRepair(job);
+  if (kind === "push") return processPush(job);
   throw new Error("Repair not implemented yet");
 }
 
