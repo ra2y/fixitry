@@ -1,18 +1,25 @@
-import { useRef, useState } from "react";
-
+import { useEffect, useState } from "react";
 import type { Doc, Id } from "../convex/_generated/dataModel";
 import { useQuery } from "convex/react";
 import { api } from "../convex/_generated/api";
 import { ApprovalPanel } from "./components/ApprovalPanel";
 import { FindingsList } from "./components/FindingsList";
 import { Guide } from "./components/Guide";
+import { FeaturesPage, HomePage, NewScanPage } from "./components/LandingPages";
 import { ProgressTimeline } from "./components/ProgressTimeline";
 import { PushApprovalPanel } from "./components/PushApprovalPanel";
 import { ResultsComparison } from "./components/ResultsComparison";
-import { ScanForm } from "./components/ScanForm";
 import { ScanStatus } from "./components/ScanStatus";
 
 type View = "findings" | "activity" | "results";
+type Page = "home" | "features" | "new-scan" | "runs";
+function currentPage(): Page {
+  const route = window.location.hash.slice(1);
+  if (route === "/features") return "features";
+  if (route === "/scans/new") return "new-scan";
+  if (route === "/runs") return "runs";
+  return "home";
+}
 const steps = ["Scan", "Review", "Repair", "Verify", "Publish"];
 type StepState = "done" | "active" | "waiting" | "failed" | "skipped" | "upcoming";
 const statusLabels: Record<Doc<"jobs">["status"], string> = {
@@ -80,7 +87,7 @@ function FindingDetail({ jobId, findingId }: { jobId: Id<"jobs">; findingId: Id<
 }
 
 function App() {
-  const scanDialog = useRef<HTMLDialogElement>(null);
+  const [page, setPage] = useState<Page>(currentPage);
   const [jobId, setJobId] = useState<Id<"jobs"> | null>(null);
   const [findingId, setFindingId] = useState<Id<"findings"> | null>(null);
   const [view, setView] = useState<View>("findings");
@@ -88,18 +95,43 @@ function App() {
   const activeJobId = jobId ?? jobs?.[0]?._id ?? null;
   const job = useQuery(api.jobs.get, activeJobId ? { jobId: activeJobId } : "skip");
 
+  useEffect(() => {
+    const onRouteChange = () => setPage(currentPage());
+    window.addEventListener("hashchange", onRouteChange);
+    return () => window.removeEventListener("hashchange", onRouteChange);
+  }, []);
+
+  useEffect(() => {
+    const titles: Record<Page, string> = {
+      home: "Fixitry | Repository security",
+      features: "Scanning features | Fixitry",
+      "new-scan": "New scan | Fixitry",
+      runs: "Runs | Fixitry",
+    };
+    document.title = titles[page];
+  }, [page]);
+
   function selectJob(id: Id<"jobs">) {
     setJobId(id);
     setFindingId(null);
     setView("findings");
+    window.location.hash = "/runs";
   }
 
   return <div className="app-shell">
     <header className="global-header">
-      <img className="brand-mark" src="/fixitry-mark.svg" alt="" /><span className="brand-name">Fixitry</span>
-      <span className="header-context">Repository security</span>
+      <a className="brand-link" href="#/" aria-label="Fixitry home"><img className="brand-mark" src="/fixitry-mark.svg" alt="" /><span className="brand-name">Fixitry</span></a>
+      <nav className="global-nav" aria-label="Main navigation">
+        <a href="#/" aria-current={page === "home" ? "page" : undefined}>Home</a>
+        <a href="#/features" aria-current={page === "features" ? "page" : undefined}>Features</a>
+        <a href="#/runs" aria-current={page === "runs" ? "page" : undefined}>Runs</a>
+      </nav>
+      <a className="header-scan-link" href="#/scans/new" aria-current={page === "new-scan" ? "page" : undefined}>New scan <span aria-hidden="true">→</span></a>
     </header>
-    <div className="workspace">
+    {page === "home" && <HomePage />}
+    {page === "features" && <FeaturesPage />}
+    {page === "new-scan" && <NewScanPage onCreated={selectJob} />}
+    {page === "runs" && <div className="workspace">
       <aside className="sidebar" aria-label="Workspace navigation">
         <div className="sidebar-title">Recent runs</div>
         <ScanStatus selectedJobId={activeJobId} onSelect={selectJob} />
@@ -107,12 +139,11 @@ function App() {
       <main className="main-content">
         <div className="page-heading">
           <div><h1>Security overview</h1><p>Review findings and verify repairs before publishing.</p></div>
-          {activeJobId && <button className="primary-button" type="button" onClick={() => scanDialog.current?.showModal()}>New scan</button>}
+          <a className="primary-button button-link" href="#/scans/new">New scan</a>
         </div>
-        {!activeJobId && <section className="scan-section" aria-labelledby="scan-title"><h2 id="scan-title">Start a scan</h2><p>Scan an allowlisted GitHub repository.</p><ScanForm onCreated={selectJob} /></section>}
-        {!activeJobId ? <section className="empty-workspace"><Guide title="Ready when you are" message="Start a scan or choose a recent run to review its findings and progress." /></section>
+        {!activeJobId ? <section className="empty-workspace"><Guide title="Ready when you are" message="Start a scan to review its findings and progress." actionLabel="Start a scan" onAction={() => { window.location.hash = "/scans/new"; }} /></section>
           : job === undefined ? <div className="loading-state" role="status">Loading run…</div>
-          : job === null ? <Guide title="Run unavailable" message="This run could not be found." tone="error" actionLabel="Start a new scan" onAction={() => scanDialog.current?.showModal()} />
+          : job === null ? <Guide title="Run unavailable" message="This run could not be found." tone="error" actionLabel="Start a new scan" onAction={() => { window.location.hash = "/scans/new"; }} />
           : <section className="run-workspace" aria-label="Selected run">
             <div className="run-heading"><div><div className="section-kicker">Selected run</div><h2>{job.repoUrl.replace(/^https:\/\/github\.com\//, "")}</h2><p className="run-meta">Started {new Date(job._creationTime).toLocaleString()} {job.commitSha && <>· Commit <code>{job.commitSha.slice(0, 8)}</code></>}</p></div><span className={`status-badge status-${job.status}`}>{statusLabels[job.status]}</span></div>
             <RunSteps job={job} />
@@ -130,8 +161,7 @@ function App() {
             {view === "results" && <div className="results-layout" role="tabpanel"><ResultsComparison jobId={activeJobId} /><PushApprovalPanel key={activeJobId} jobId={activeJobId} /></div>}
           </section>}
       </main>
-    </div>
-    {activeJobId && <dialog ref={scanDialog} className="scan-dialog" aria-labelledby="scan-dialog-title"><div className="dialog-heading"><div><h2 id="scan-dialog-title">New scan</h2><p>Enter an allowlisted GitHub repository.</p></div><button type="button" className="dialog-close" aria-label="Close" onClick={() => scanDialog.current?.close()}>×</button></div><ScanForm onCreated={(id) => { selectJob(id); scanDialog.current?.close(); }} /></dialog>}
+    </div>}
   </div>;
 }
 
