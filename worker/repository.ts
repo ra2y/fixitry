@@ -5,8 +5,6 @@ import { config } from "./config";
 import { childEnv, run } from "./exec";
 import { assertInsideWorkRoot } from "./cleanup";
 
-const norm = (p: string) => p.replace(/\\/g, "/").replace(/^"|"$/g, "");
-
 export async function createJobDir(): Promise<string> {
   await mkdir(config.workRoot, { recursive: true });
   return await mkdtemp(path.join(config.workRoot, "job-"));
@@ -37,20 +35,44 @@ export async function headSha(repoDir: string): Promise<string> {
 }
 
 export async function changedFiles(repoDir: string): Promise<string[]> {
-  const res = await run("git", ["status", "--porcelain=v1", "-uall"], { cwd: repoDir, timeoutMs: 15_000 });
-  return res.stdout.split(/\r?\n/).filter(Boolean)
-    .flatMap((line) => line.slice(3).split(" -> ")).map(norm);
+  assertInsideWorkRoot(repoDir);
+  const res = await run("git", ["status", "--porcelain=v1", "-z", "-uall"], {
+    cwd: repoDir, timeoutMs: 15_000,
+  });
+  if (res.exitCode !== 0) throw new Error("git status failed");
+
+  const entries = res.stdout.split("\0");
+  const files = new Set<string>();
+  for (let i = 0; i < entries.length; i += 1) {
+    const entry = entries[i];
+    if (!entry) continue;
+    if (entry.length < 4 || entry[2] !== " ") throw new Error("Unexpected git status output");
+    files.add(entry.slice(3).replace(/\\/g, "/"));
+    if (/[RC]/.test(entry.slice(0, 2))) {
+      const previousPath = entries[++i];
+      if (!previousPath) throw new Error("Missing renamed path in git status");
+      files.add(previousPath.replace(/\\/g, "/"));
+    }
+  }
+  return [...files];
 }
 
 export async function revertAll(repoDir: string): Promise<void> {
-  assertInsideWorkRoot(repoDir); // never run reset/clean outside our temp area
-  await run("git", ["reset", "--hard"], { cwd: repoDir, timeoutMs: 30_000 });
-  await run("git", ["clean", "-fd"], { cwd: repoDir, timeoutMs: 30_000 });
+  assertInsideWorkRoot(repoDir);
+  for (const args of [["reset", "--hard"], ["clean", "-fd"]]) {
+    const res = await run("git", args, { cwd: repoDir, timeoutMs: 30_000 });
+    if (res.exitCode !== 0) throw new Error(`git ${args[0]} failed`);
+  }
 }
 
 export async function stagedPatch(repoDir: string): Promise<{ patch: string; truncated: boolean }> {
-  await run("git", ["add", "-A"], { cwd: repoDir, timeoutMs: 30_000 });
-  const res = await run("git", ["diff", "--cached", "--binary"], { cwd: repoDir, timeoutMs: 30_000, maxBytes: 5_000_000 });
-  const CAP = 200_000;
-  return { patch: res.stdout.slice(0, CAP), truncated: res.stdout.length > CAP };
+  assertInsideWorkRoot(repoDir);
+  const add = await run("git", ["add", "-A", "--"], { cwd: repoDir, timeoutMs: 30_000 });
+  if (add.exitCode !== 0) throw new Error("git add failed");
+  const diff = await run("git", ["diff", "--cached", "--binary", "--no-ext-diff"], {
+    cwd: repoDir, timeoutMs: 30_000, maxBytes: 5_000_000,
+  });
+  if (diff.exitCode !== 0) throw new Error("git diff failed or exceeded size limit");
+  const limit = 200_000;
+  return { patch: diff.stdout.slice(0, limit), truncated: diff.stdout.length > limit };
 }
