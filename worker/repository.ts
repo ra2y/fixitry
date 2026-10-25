@@ -4,6 +4,7 @@ import { isAllowed, parseGithubRepoUrl } from "../convex/lib/repoUrl";
 import { config } from "./config";
 import { childEnv, run } from "./exec";
 import { assertInsideWorkRoot } from "./cleanup";
+import { filterEditable } from "./repoFiles";
 
 export async function createJobDir(): Promise<string> {
   await mkdir(config.workRoot, { recursive: true });
@@ -75,4 +76,10 @@ export async function stagedPatch(repoDir: string): Promise<{ patch: string; tru
   if (diff.exitCode !== 0) throw new Error("git diff failed or exceeded size limit");
   const limit = 200_000;
   return { patch: diff.stdout.slice(0, limit), truncated: diff.stdout.length > limit };
+}
+
+export async function listRepoFiles(repoDir: string): Promise<string[]> {
+  const res = await run("git", ["ls-files", "-z"], { cwd: repoDir, timeoutMs: 15_000, maxBytes: 5_000_000 });
+  if (res.exitCode !== 0) throw new Error("git ls-files failed");
+  return filterEditable(res.stdout.split("\0").filter(Boolean));
 }

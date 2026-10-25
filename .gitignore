@@ -43,3 +43,5 @@ convex/_generated/
 
 docs
 BUILD_GUIDE.md
+
+.claudeignore

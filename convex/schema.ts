@@ -16,10 +16,12 @@ export const jobStatus = v.union(
   v.literal("failed"),
 );
 
+export const zapMode = v.union(v.literal("off"), v.literal("baseline"), v.literal("active"));
+
 export const findingFields = {
   fingerprint: v.string(),
-  kind: v.union(v.literal("vulnerability"), v.literal("secret"), v.literal("misconfiguration"), v.literal("code")),
-  source: v.optional(v.union(v.literal("trivy"), v.literal("semgrep"))),
+  kind: v.union(v.literal("vulnerability"), v.literal("secret"), v.literal("misconfiguration"), v.literal("code"), v.literal("dynamic")),
+  source: v.optional(v.union(v.literal("trivy"), v.literal("semgrep"), v.literal("zap"))),
   severity: v.union(v.literal("CRITICAL"), v.literal("HIGH"), v.literal("MEDIUM"), v.literal("LOW"), v.literal("UNKNOWN")),
   ruleId: v.string(),
   title: v.string(),
@@ -29,6 +31,10 @@ export const findingFields = {
   packageName: v.optional(v.string()),
   installedVersion: v.optional(v.string()),
   fixedVersion: v.optional(v.string()),
+  httpMethod: v.optional(v.string()),
+  parameter: v.optional(v.string()),
+  evidence: v.optional(v.string()),
+  affectedPaths: v.optional(v.array(v.string())),
 };
 
 export default defineSchema({
@@ -42,12 +48,15 @@ export default defineSchema({
     commitSha: v.optional(v.string()),
     branchName: v.optional(v.string()),
     pullRequestUrl: v.optional(v.string()),
+    zapMode: v.optional(zapMode),
+    repoFiles: v.optional(v.array(v.string())),      // files the human may choose from
+    approvedFiles: v.optional(v.array(v.string())),  // files the human chose for a ZAP repair
   }).index("by_status", ["status"]),
   events: defineTable({
-  jobId: v.id("jobs"),
-    level: v.union(v.literal("info"), v.literal("warn"), v.literal("error")),
-    source: v.union(v.literal("worker"), v.literal("trivy"), v.literal("droid"), v.literal("tests"), v.literal("semgrep")),
-    message: v.string(),
+    jobId: v.id("jobs"),
+      level: v.union(v.literal("info"), v.literal("warn"), v.literal("error")),
+      source: v.union(v.literal("worker"), v.literal("trivy"), v.literal("droid"), v.literal("tests"), v.literal("semgrep"), v.literal("zap")),
+      message: v.string(),
   }).index("by_job", ["jobId"]),
   findings: defineTable({
     jobId: v.id("jobs"),
