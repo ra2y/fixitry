@@ -15,7 +15,7 @@ Phase 15 hardening: the worker removes `WORKER_SECRET`, `FACTORY_API_KEY`, and `
 3. In the Convex dev dashboard, set `WORKER_SECRET` and `ALLOWED_REPOSITORIES` (the HTTPS URL of the demo repository).
 4. Copy `.env.example` to `.env` if `.env` does not exist. Set `CONVEX_URL` to the same dev URL, `WORKER_SECRET` to the same private value as in Convex, and `DEMO_REPOSITORY_URL` to the allowlisted URL. For repairs, also set `FACTORY_API_KEY` and install the Factory Droid CLI.
 5. Install Trivy for scans (this Mac used Trivy 0.76.1). Stop other Fixitry Convex watchers and workers before testing this branch, then start `npm run dev` and `npm run worker` in separate terminals.
-6. The demo pins pytest 7.1.2, which fails on Python 3.14 and newer. The worker builds the test venv with `FIXITRY_PYTHON` (default `python3`); set it in `.env` to a Python 3.8–3.13 interpreter, e.g. `FIXITRY_PYTHON=python3.13`.
+6. The demo pins pytest 7.1.2 and Werkzeug 2.0.2, which fail on Python 3.14 and newer. Have any Python from 3.9 to 3.13 installed (alongside 3.14 is fine): the worker picks the newest one automatically (`py -3.13` … `py -3.9` on Windows, `python3.13` … `python3.9` elsewhere). Set `FIXITRY_PYTHON` in `.env` only to force a specific interpreter.
 
 Keep `.env`, `.env.local`, and real secrets out of Git. Never prefix a secret with `VITE_`. The worker clones the demo repository anonymously, so it must be publicly readable with the current setup.
 
