@@ -1,6 +1,6 @@
-export type FindingKind = "vulnerability" | "secret" | "misconfiguration" | "code";
+export type FindingKind = "vulnerability" | "secret" | "misconfiguration" | "code" | "dynamic";
 export type Severity = "CRITICAL" | "HIGH" | "MEDIUM" | "LOW" | "UNKNOWN";
-export type FindingSource = "trivy" | "semgrep";
+export type FindingSource = "trivy" | "semgrep" | "zap";
 
 export interface NormalizedFinding {
   fingerprint: string;
@@ -15,4 +15,8 @@ export interface NormalizedFinding {
   packageName?: string;
   installedVersion?: string;
   fixedVersion?: string;
+  httpMethod?: string;
+  parameter?: string;
+  evidence?: string;
+  affectedPaths?: string[];
 }

@@ -2,7 +2,7 @@ import { mutation, query } from "./_generated/server";
 import { ConvexError, v } from "convex/values";
 import { assertWorker } from "./lib/auth";
 import type { Doc } from "./_generated/dataModel";
-import { jobStatus } from "./schema";
+import { jobStatus, zapMode } from "./schema";
 import { isAllowed, parseGithubRepoUrl } from "./lib/repoUrl";
 import { assertGeneratedBranchName, branchNameForJob } from "../shared/branch";
 
@@ -29,8 +29,8 @@ export const list = query({
 });
 
 export const create = mutation({
-  args: { repoUrl: v.string() },
-  handler: async (ctx, { repoUrl }) => {
+  args: { repoUrl: v.string(), zapMode: v.optional(zapMode) },
+  handler: async (ctx, { repoUrl, zapMode: mode }) => {
     const allowlist = (process.env.ALLOWED_REPOSITORIES ?? "")
       .split(",")
       .map((entry) => entry.trim())
@@ -43,7 +43,7 @@ export const create = mutation({
     try {
       if (!isAllowed(repoUrl, allowlist)) throw new Error("Repository is not on the allowlist");
       const { canonicalUrl } = parseGithubRepoUrl(repoUrl);
-      return await ctx.db.insert("jobs", { repoUrl: canonicalUrl, status: "pending" });
+      return await ctx.db.insert("jobs", { repoUrl: canonicalUrl, status: "pending", zapMode: mode ?? "off" });
     } catch (error) {
       throw new ConvexError(error instanceof Error ? error.message : "Invalid repository");
     }
@@ -51,34 +51,25 @@ export const create = mutation({
 });
 
 export const claimNext = mutation({
-  args: { secret: v.string(), workerId: v.string() },
-  handler: async (ctx, { secret, workerId }) => {
+  args: { secret: v.string(), workerId: v.string(), supportsZap: v.optional(v.boolean()) },
+  handler: async (ctx, { secret, workerId, supportsZap }) => {
     assertWorker(secret);
+    const usable = (j: Doc<"jobs">) => supportsZap === true || !j.zapMode || j.zapMode === "off";
 
-    const pending = await ctx.db
-      .query("jobs")
-      .withIndex("by_status", (q) => q.eq("status", "pending"))
-      .first();
+    const pendingJobs = await ctx.db.query("jobs")
+      .withIndex("by_status", (q) => q.eq("status", "pending")).take(20);
+    const pending = pendingJobs.find(usable);
     if (pending) {
       await ctx.db.patch(pending._id, { status: "cloning", claimedBy: workerId });
       return { kind: "scan" as const, job: (await ctx.db.get(pending._id))! };
     }
 
-    const approved = await ctx.db
-      .query("jobs")
-      .withIndex("by_status", (q) => q.eq("status", "approved"))
-      .first();
+    const approvedJobs = await ctx.db.query("jobs")
+      .withIndex("by_status", (q) => q.eq("status", "approved")).take(20);
+    const approved = approvedJobs.find(usable);
     if (approved) {
       await ctx.db.patch(approved._id, { status: "repairing", claimedBy: workerId });
       return { kind: "repair" as const, job: (await ctx.db.get(approved._id))! };
-    }
-
-    const pushing = await ctx.db
-      .query("jobs")
-      .withIndex("by_status", (q) => q.eq("status", "pushing"))
-      .first();
-    if (pushing) {
-      return { kind: "push" as const, job: pushing };
     }
     return null;
   },
@@ -146,8 +137,8 @@ export const setCommit = mutation({
 });
 
 export const approveFinding = mutation({
-  args: { jobId: v.id("jobs"), findingId: v.id("findings") },
-  handler: async (ctx, { jobId, findingId }) => {
+  args: { jobId: v.id("jobs"), findingId: v.id("findings"), allowedFiles: v.optional(v.array(v.string())) },
+  handler: async (ctx, { jobId, findingId, allowedFiles }) => {
     const job = await ctx.db.get(jobId);
     if (!job) throw new ConvexError("Job not found");
     if (job.status !== "awaiting_approval") throw new ConvexError(`Job is ${job.status}, not awaiting approval`);
@@ -156,7 +147,23 @@ export const approveFinding = mutation({
     if (!finding || finding.jobId !== jobId || finding.scanRound !== "initial") {
       throw new ConvexError("Finding does not belong to this job");
     }
-    await ctx.db.patch(jobId, { status: "approved", selectedFindingId: findingId, approvedAt: Date.now() });
+    let approvedFiles: string[] | undefined;
+    if (finding.source === "zap") {
+      const offered = new Set(job.repoFiles ?? []);
+      const chosen = [...new Set(allowedFiles ?? [])];
+      if (chosen.length < 1 || chosen.length > 3) throw new ConvexError("Choose 1 to 3 files the agent may edit");
+      if (chosen.some((f) => !offered.has(f))) throw new ConvexError("One of the chosen files is not available for editing");
+      approvedFiles = chosen;
+    } else if (allowedFiles && allowedFiles.length > 0) {
+      throw new ConvexError("File selection applies only to web-scan findings");
+    }
+
+    await ctx.db.patch(jobId, {
+      status: "approved",
+      selectedFindingId: findingId,
+      approvedAt: Date.now(),
+      ...(approvedFiles ? { approvedFiles } : {}),
+    });
   },
 });
 
@@ -216,5 +223,13 @@ export const getFinding = query({
   handler: async (ctx, { secret, findingId }) => {
     assertWorker(secret);
     return await ctx.db.get(findingId);
+  },
+});
+
+export const setRepoFiles = mutation({
+  args: { secret: v.string(), jobId: v.id("jobs"), files: v.array(v.string()) },
+  handler: async (ctx, { secret, jobId, files }) => {
+    assertWorker(secret);
+    await ctx.db.patch(jobId, { repoFiles: files.slice(0, 1000) });
   },
 });

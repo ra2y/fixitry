@@ -8,7 +8,7 @@ import type { NormalizedFinding } from "../shared/types";
 
 export async function logEvent(
   jobId: Id<"jobs">,
-  source: "worker" | "trivy" | "droid" | "tests" | "semgrep",
+  source: "worker" | "trivy" | "droid" | "tests" | "semgrep" | "zap",
   message: string,
   level: "info" | "warn" | "error" = "info",
 ) {

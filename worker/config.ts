@@ -23,6 +23,12 @@ export const config = {
   semgrepMode: (process.env.SEMGREP_MODE ?? "docker") as "docker" | "local",
   semgrepImage: process.env.SEMGREP_IMAGE ?? "",
   rulesDir: path.resolve("semgrep-rules"),
+  zapImage: process.env.ZAP_IMAGE ?? "",
+  zapProfile: {
+    port: Number(process.env.ZAP_TARGET_PORT ?? "5000"),
+    healthPath: process.env.ZAP_HEALTH_PATH ?? "/health",
+    openapiFile: process.env.ZAP_OPENAPI_FILE ?? "openapi.yaml",
+  },
 };
 
 // Secrets now live only in `config`. Child processes inherit process.env, so remove them.

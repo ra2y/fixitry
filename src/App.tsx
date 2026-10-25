@@ -1,7 +1,8 @@
 import { useRef, useState } from "react";
+
+import type { Doc, Id } from "../convex/_generated/dataModel";
 import { useQuery } from "convex/react";
 import { api } from "../convex/_generated/api";
-import type { Doc, Id } from "../convex/_generated/dataModel";
 import { ApprovalPanel } from "./components/ApprovalPanel";
 import { FindingsList } from "./components/FindingsList";
 import { Guide } from "./components/Guide";
@@ -69,6 +70,10 @@ function FindingDetail({ jobId, findingId }: { jobId: Id<"jobs">; findingId: Id<
       <div><dt>Location</dt><dd><code>{finding.target}{finding.startLine ? `:${finding.startLine}` : ""}</code></dd></div>
       {finding.packageName && <div><dt>Package</dt><dd>{finding.packageName} {finding.installedVersion}</dd></div>}
       {finding.fixedVersion && <div><dt>Fixed in</dt><dd>{finding.fixedVersion}</dd></div>}
+      {finding.httpMethod && <div><dt>Request</dt><dd><code>{finding.httpMethod} {finding.target}</code></dd></div>}
+      {finding.parameter && <div><dt>Parameter</dt><dd><code>{finding.parameter}</code></dd></div>}
+      {finding.evidence && <div><dt>Evidence</dt><dd><code>{finding.evidence}</code></dd></div>}
+      {finding.affectedPaths && finding.affectedPaths.length > 1 && <div><dt>Seen on</dt><dd>{finding.affectedPaths.join(", ")}</dd></div>}
     </dl>
     <p className="finding-description">{finding.description}</p>
   </div>;

@@ -7,7 +7,7 @@ export const add = mutation({
     secret: v.string(),
     jobId: v.id("jobs"),
     level: v.union(v.literal("info"), v.literal("warn"), v.literal("error")),
-    source: v.union(v.literal("worker"), v.literal("trivy"), v.literal("droid"), v.literal("tests"), v.literal("semgrep")),
+    source: v.union(v.literal("worker"), v.literal("trivy"), v.literal("droid"), v.literal("tests"), v.literal("semgrep"), v.literal("zap")),
     message: v.string(),
   },
   handler: async (ctx, { secret, message, ...rest }) => {

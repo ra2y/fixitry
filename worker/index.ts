@@ -17,6 +17,13 @@ import { parseTrivy } from "./parseTrivy";
 import { runSemgrep } from "./semgrep";
 import { parseSemgrep } from "./parseSemgrep";
 
+import type { NormalizedFinding } from "../shared/types";
+import { listRepoFiles } from "./repository";
+import { parseZap } from "./parseZap";
+import { runZapScan } from "./zap";
+import { sweepZapLeftovers } from "./docker";
+
+if (config.zapImage) await sweepZapLeftovers().catch((e) => console.warn("ZAP sweep skipped:", e?.message ?? e));
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 let stopping = false;
 process.on("SIGINT", () => {
@@ -66,11 +73,10 @@ async function processRepair(job: Doc<"jobs">) {
     }
 
     await logEvent(job._id, "droid", `Starting repair of ${finding.ruleId} in ${finding.target}`);
-    const output = await runRepair({
-      repoDir, finding, log: (message, level) => logEvent(job._id, "droid", message, level),
-    });
+    const allowed = allowedFilesFor(finding, job.approvedFiles);
+    const output = await runRepair({ repoDir, finding, allowed, log: (m, l) => logEvent(job._id, "droid", m, l) });
+
     summary = output.summary;
-    const allowed = allowedFilesFor(finding);
     const changed = await changedFiles(repoDir);
     const outside = changed.filter((file) => !allowed.includes(file));
     if (outside.length > 0) {
@@ -104,7 +110,13 @@ async function processRepair(job: Doc<"jobs">) {
       await logEvent(job._id, "semgrep", "Running verification scan");
       const semgrepFile = await runSemgrep(repoDir, outDir, "verification");
       const semgrepAfter = await parseSemgrep(JSON.parse(await readFile(semgrepFile, "utf8")), repoDir);
-      const after = [...trivyAfter, ...semgrepAfter];
+      let zapAfter: NormalizedFinding[] = [];
+      if (job.zapMode === "baseline" || job.zapMode === "active") {
+        await logEvent(job._id, "zap", `Re-running the ${job.zapMode} scan against the patched code`);
+        const zapFile = await runZapScan({ repoDir, outDir, label: "verification", mode: job.zapMode });
+        zapAfter = parseZap(JSON.parse(await readFile(zapFile, "utf8")));
+      }
+      const after = [...trivyAfter, ...semgrepAfter, ...zapAfter];
       await saveFindings(job._id, "verification", after);
       const before = await convex.query(api.findings.listForWorker, {
         secret: config.workerSecret, jobId: job._id, scanRound: "initial",
@@ -226,7 +238,21 @@ async function processScan(job: Doc<"jobs">) {
     const semgrepFile = await runSemgrep(repoDir, outDir, "initial");
     const semgrepFindings = await parseSemgrep(JSON.parse(await readFile(semgrepFile, "utf8")), repoDir);
     await logEvent(job._id, "semgrep", `Parsed ${semgrepFindings.length} findings`);
-    const findings = [...trivyFindings, ...semgrepFindings];
+
+    let zapFindings: NormalizedFinding[] = [];
+    if (job.zapMode === "baseline" || job.zapMode === "active") {
+      await logEvent(job._id, "zap", `Starting a ${job.zapMode} scan. The first run downloads large base images and can take several minutes.`);
+      const zapFile = await runZapScan({ repoDir, outDir, label: "initial", mode: job.zapMode });
+      zapFindings = parseZap(JSON.parse(await readFile(zapFile, "utf8")));
+      await logEvent(job._id, "zap", `Parsed ${zapFindings.length} findings`);
+
+      const files = await listRepoFiles(repoDir);
+      await convex.mutation(api.jobs.setRepoFiles, { secret: config.workerSecret, jobId: job._id, files });
+    }
+
+    const findings = [...trivyFindings, ...semgrepFindings, ...zapFindings];
+
+
     await saveFindings(job._id, "initial", findings);
     const sha = await headSha(repoDir);
     await convex.mutation(api.jobs.setCommit, { secret: config.workerSecret, jobId: job._id, commitSha: sha });
@@ -254,6 +280,7 @@ async function main() {
       const claimed = await convex.mutation(api.jobs.claimNext, {
         secret: config.workerSecret,
         workerId: config.workerId,
+        supportsZap: Boolean(config.zapImage),
       });
       if (!claimed) {
         await sleep(config.pollIntervalMs);
