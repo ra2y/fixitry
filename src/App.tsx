@@ -6,6 +6,7 @@ import { ScanStatus } from "./components/ScanStatus";
 import { ProgressTimeline } from "./components/ProgressTimeline";
 import { FindingsList } from "./components/FindingsList";
 import { ApprovalPanel } from "./components/ApprovalPanel";
+import { ResultsComparison } from "./components/ResultsComparison";
 
 
 function App() {
@@ -24,6 +25,7 @@ function App() {
       {jobId && <ProgressTimeline jobId={jobId} />}
       {jobId && <FindingsList jobId={jobId} selectedId={findingId} onSelect={setFindingId} />}
       {jobId && <ApprovalPanel jobId={jobId} findingId={findingId} />}
+      {jobId && <ResultsComparison jobId={jobId} />}
     </main>
   );
 }

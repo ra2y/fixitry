@@ -26,11 +26,10 @@ Keep `.env`, `.env.local`, and real secrets out of Git. Never prefix a secret wi
 - `npm run test:compare` — checks resolved, remaining, and introduced finding groups
 - `npm run droid:smoke -- <fresh-demo-clone>` — Phase 11 read-only SDK smoke test, requires a valid Factory key and CLI
 
-For a live Phase 13 test, create a new scan and approve a dependency finding in `requirements.txt`. Expect Droid and test events, then a verification scan. In the Convex dev dashboard's Data tab, check the job's `repairAttempts` row for `testsPassed`, counts, and status, and check `findings` for `scanRound: "verification"`. The results UI belongs to Phase 14. Set `FIXITRY_KEEP_TMP=1` only for a local inspection, then remove the retained temporary clone and clear the flag.
+For a live Phase 13 test, create a new scan and approve a dependency finding in `requirements.txt`. Expect Droid and test events, then a verification scan. In the Convex dev dashboard's Data tab, check the job's `repairAttempts` row for `testsPassed`, counts, and status, and check `findings` for `scanRound: "verification"`. The Phase 14 results panel below the approval panel shows resolved, remaining, and new findings, the test result, the agent summary, and the coloured patch. Set `FIXITRY_KEEP_TMP=1` only for a local inspection, then remove the retained temporary clone and clear the flag.
 
 ## Limitations
 
 - No authentication for the dashboard yet; use only the private development deployment and demo repository.
-- The before/after results UI is planned for Phase 14; Phase 13 results are stored in Convex.
 - Local Droid runs with the host user's filesystem access. The Phase 16 container is the planned filesystem boundary.
 - No branch push or pull request is performed by the worker.
