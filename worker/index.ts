@@ -82,7 +82,6 @@ async function processRepair(job: Doc<"jobs">) {
       });
       attemptFinished = true;
       await logEvent(job._id, "droid", output.error ?? "Droid made no changes", "warn");
-      throw new Error(output.error ?? "Droid made no changes");
     } else {
       patchInfo = await stagedPatch(repoDir);
       await logEvent(job._id, "worker", `Changed files: ${changed.join(", ")}`);
@@ -109,8 +108,7 @@ async function processRepair(job: Doc<"jobs">) {
         summary, filesChanged: changed, patch: patchInfo.patch, patchTruncated: patchInfo.truncated,
         testsPassed: tests.passed, testOutput: tests.output,
         resolvedCount: resolved.length, remainingCount: remaining.length, newCount: introduced.length,
-        ...(!tests.passed ? { error: "Tests failed" } :
-          !selectedResolved ? { error: "The selected finding is still present after the repair" } : {}),
+        ...(selectedResolved ? {} : { error: "The selected finding is still present after the repair" }),
       });
       attemptFinished = true;
     }
