@@ -3,6 +3,7 @@ import { useMutation, useQuery } from "convex/react";
 import { ConvexError } from "convex/values";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
+import { Guide } from "./Guide";
 
 type Props = { jobId: Id<"jobs">; findingId: Id<"findings"> | null };
 
@@ -25,15 +26,16 @@ export function ApprovalPanel({ jobId, findingId }: Props) {
   }
 
   return (
-    <section>
+    <section className="approval-section">
+      <div className="section-kicker">APPROVAL REQUIRED</div>
       <h3>Approve a repair</h3>
-      <p>{findingId ? "Selected finding will be sent to the AI agent." : "Select a finding above."}</p>
-      <label>
+      <p>{findingId ? "Fixitry will attempt a repair for this finding in a temporary copy." : "Select a finding to enable this action."}</p>
+      <label className="checkbox-label">
         <input type="checkbox" checked={ack} onChange={(e) => setAck(e.target.checked)} />
-        I understand the agent will edit files in a temporary copy. Nothing is pushed.
+        <span>I understand this repair edits a temporary copy. Nothing is pushed.</span>
       </label>
-      <button disabled={!findingId || !ack} onClick={onApprove}>Approve repair</button>
-      {error && <p style={{ color: "#f87171" }}>{error}</p>}
+      <button className="primary-button" disabled={!findingId || !ack} onClick={onApprove}>Approve repair</button>
+      {error && <Guide title="Approval failed" message={error} tone="error" />}
     </section>
   );
 }
