@@ -8,6 +8,8 @@
     "convex:dev": "convex dev",
     "worker": "tsx worker/index.ts",
     "droid:smoke": "tsx worker/droidSmoke.ts",
+    "test:repair-safety": "tsx --test worker/repairSafety.test.ts",
+    "test:compare": "tsx --test shared/compare.test.ts",
     "build": "tsc -b && vite build",
     "lint": "oxlint",
     "preview": "vite preview",

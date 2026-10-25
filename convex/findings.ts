@@ -2,6 +2,7 @@ import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 import { assertWorker } from "./lib/auth";
 import { findingFields } from "./schema";
+import schema from "./schema";
 
 export const addBatch = mutation({
   args: {
@@ -28,10 +29,17 @@ export const listByJob = query({
 });
 
 export const listForWorker = query({
-  args: { secret: v.string(), jobId: v.id("jobs"), scanRound: v.union(v.literal("initial"), v.literal("verification")) },
+  args: {
+    secret: v.string(),
+    jobId: v.id("jobs"),
+    scanRound: v.union(v.literal("initial"), v.literal("verification")),
+  },
+  returns: v.array(schema.doc("findings")),
   handler: async (ctx, { secret, jobId, scanRound }) => {
     assertWorker(secret);
-    return await ctx.db.query("findings")
-      .withIndex("by_job_round", (q) => q.eq("jobId", jobId).eq("scanRound", scanRound)).take(1000);
+    return await ctx.db
+      .query("findings")
+      .withIndex("by_job_round", (q) => q.eq("jobId", jobId).eq("scanRound", scanRound))
+      .take(1000);
   },
 });
